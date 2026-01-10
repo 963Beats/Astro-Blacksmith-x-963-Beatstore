@@ -1,4 +1,3 @@
-import os
 import logging
 from typing import List, Dict, Any
 from flask import Flask, send_from_directory, render_template, abort
@@ -12,7 +11,6 @@ class Config:
     BEATS_ROOT = BASE_DIR / "beats"
     IMAGE_EXTS = {".jpg", ".jpeg", ".png", ".webp"}
     AUDIO_EXTS = {".mp3", ".wav", ".ogg"}
-    DEBUG = True
 
 # ---------------- LOGGING ----------------
 logging.basicConfig(level=logging.INFO)
@@ -22,7 +20,7 @@ logger = logging.getLogger(__name__)
 app = Flask(__name__)
 app.config.from_object(Config)
 
-logger.info(f"Beats path: {Config.BEATS_ROOT.resolve()}")
+logger.info(f"Beats directory: {Config.BEATS_ROOT}")
 
 # ---------------- BEATS SCAN ----------------
 class BeatManager:
@@ -31,7 +29,7 @@ class BeatManager:
         genres = []
 
         if not Config.BEATS_ROOT.exists():
-            logger.error("Beats folder missing")
+            logger.error("❌ Beats folder not found")
             return genres
 
         for genre in sorted(d for d in Config.BEATS_ROOT.iterdir() if d.is_dir()):
@@ -42,16 +40,16 @@ class BeatManager:
                 if img_dir.exists() else []
             )
 
-            audio = [
+            audio_files = [
                 f.name for f in genre.iterdir()
                 if f.suffix.lower() in Config.AUDIO_EXTS
             ]
 
-            if not audio:
+            if not audio_files:
                 continue
 
             beats = []
-            for i, file in enumerate(sorted(audio)):
+            for i, file in enumerate(sorted(audio_files)):
                 beats.append({
                     "title": file.rsplit(".", 1)[0].replace("_", " ").title(),
                     "file": file,
@@ -64,6 +62,7 @@ class BeatManager:
                 "beats": beats
             })
 
+        logger.info(f"Loaded {len(genres)} genres")
         return genres
 
 # ---------------- ROUTES ----------------
@@ -85,6 +84,6 @@ def visuals(folder, filename):
         abort(404)
     return send_from_directory(path, filename)
 
-# ---------------- RUN ----------------
+# ---------------- ENTRY ----------------
 if __name__ == "__main__":
-    app.run(host="0.0.0.0", port=5000, debug=True)
+    app.run()
