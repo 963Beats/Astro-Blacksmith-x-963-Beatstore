@@ -1,4 +1,5 @@
 import logging
+import random
 from pathlib import Path
 from typing import List, Dict, Any
 from functools import lru_cache
@@ -54,50 +55,47 @@ class BeatManager:
                 continue
 
             img_dir = genre / "images"
-            image_map: Dict[str, str] = {}
+            images: List[str] = []
 
             if img_dir.exists():
-                for img in img_dir.iterdir():
-                    if img.suffix.lower() in Config.IMAGE_EXTS:
-                        image_map[img.stem.lower()] = img.name
+                images = [
+                    i.name for i in img_dir.iterdir()
+                    if i.suffix.lower() in Config.IMAGE_EXTS
+                ]
             else:
                 logger.warning(f"⚠️ Missing images folder: {img_dir}")
 
             audio_files = sorted(
-                [
-                    f for f in genre.iterdir()
-                    if f.is_file() and f.suffix.lower() in Config.AUDIO_EXTS
-                ],
+                [f for f in genre.iterdir() if f.is_file() and f.suffix.lower() in Config.AUDIO_EXTS],
                 key=lambda f: f.name.lower(),
             )
 
             if not audio_files:
                 continue
 
+            # Shuffle images once to lock mapping per app session
+            shuffled_images = images.copy()
+            random.shuffle(shuffled_images)
+
             beats = []
-            for audio in audio_files:
-                stem = audio.stem.lower()
-                image_name = image_map.get(stem)
+            for idx, audio in enumerate(audio_files):
+                if shuffled_images:
+                    # Cycle through images if fewer than beats
+                    image_name = shuffled_images[idx % len(shuffled_images)]
+                else:
+                    image_name = "default.jpg"  # fallback if no images in folder
 
-                # Strong fallback check
-                if not image_name and (img_dir / "default.jpg").exists():
-                    image_name = "default.jpg"
+                beats.append({
+                    "title": audio.stem.replace("_", " ").title(),
+                    "file": audio.name,
+                    "image": image_name,
+                })
 
-                beats.append(
-                    {
-                        "title": audio.stem.replace("_", " ").title(),
-                        "file": audio.name,
-                        "image": image_name,
-                    }
-                )
-
-            genres.append(
-                {
-                    "name": genre.name.replace("-", " ").title(),
-                    "folder": genre.name,
-                    "beats": beats,
-                }
-            )
+            genres.append({
+                "name": genre.name.replace("-", " ").title(),
+                "folder": genre.name,
+                "beats": beats,
+            })
 
         logger.info(f"✅ Loaded {len(genres)} genres")
         return genres
