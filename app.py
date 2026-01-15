@@ -88,6 +88,11 @@ class BeatManager:
 
 
 # ---------------- ROUTES ----------------
+@app.route("/")
+def index():
+    return render_template("index.html", genres=BeatManager.get_all_genres())
+
+
 @app.route("/beat/<genre>/<slug>")
 def beat_page(genre, slug):
     genres = BeatManager.get_all_genres()
@@ -104,10 +109,6 @@ def beat_page(genre, slug):
                     )
 
     abort(404)
-    
-@app.route("/")
-def index():
-    return render_template("index.html", genres=BeatManager.get_all_genres())
 
 
 @app.route("/audio/<genre>/<filename>")
