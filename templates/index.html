@@ -10,7 +10,7 @@
 <script src="https://unpkg.com/lucide@latest"></script>
 
 <style>
-[x-cloak] { display:none!important }
+[x-cloak]{display:none!important}
 </style>
 </head>
 
@@ -38,7 +38,7 @@ x-init="init()">
 
 <div class="flex h-screen overflow-hidden">
 
-<!-- DESKTOP SIDEBAR -->
+<!-- SIDEBAR -->
 <aside class="hidden md:flex w-72 bg-[#0f1322] border-r border-slate-800 flex-col">
   <div class="p-8">
     <h1 class="text-xl font-black text-emerald-400">963</h1>
@@ -73,7 +73,6 @@ x-init="init()">
 <!-- HEADER -->
 <header class="p-8">
   <h1 class="text-4xl font-black" x-text="activeGenre?.name || 'Select Genre'"></h1>
-
   <p x-show="activeGenre?.beats?.some(b=>b.is_new)"
      x-cloak
      class="mt-2 text-xs font-black text-emerald-400 tracking-widest">
@@ -81,7 +80,7 @@ x-init="init()">
   </p>
 </header>
 
-<!-- BEATS -->
+<!-- BEATS LIST -->
 <div class="px-6 pb-40 space-y-2">
 <template x-for="beat in activeGenre?.beats || []" :key="beat.file">
 
@@ -93,12 +92,10 @@ x-init="init()">
 ]"
 class="flex items-center gap-4 p-3 rounded-xl hover:bg-white/5 cursor-pointer">
 
-<!-- IMAGE -->
 <img
 :src="`/visuals/${beat.genre_folder}/${beat.image}`"
 class="w-12 h-12 rounded-lg object-cover"/>
 
-<!-- INFO -->
 <div class="flex-1">
   <div class="flex items-center gap-2">
     <span class="font-bold" x-text="beat.title"></span>
@@ -111,10 +108,11 @@ class="w-12 h-12 rounded-lg object-cover"/>
        x-text="activeGenre.name"></div>
 </div>
 
+<!-- BUY BUTTON -->
 <button
-@click.stop="playTrack(beat)"
-class="px-4 py-2 bg-emerald-500 text-black text-[10px] font-black rounded-full">
-PLAY
+@click.stop="openLease(beat)"
+class="px-5 py-2 bg-emerald-500 hover:bg-emerald-400 text-black text-[10px] font-black rounded-full uppercase">
+BUY
 </button>
 
 </div>
@@ -127,7 +125,6 @@ x-cloak
 class="fixed bottom-0 left-0 right-0 bg-[#0f1322]/95 border-t border-slate-800 p-4">
 
 <div class="flex items-center gap-4">
-
 <img
 :src="`/visuals/${currentTrack.genre_folder}/${currentTrack.image}`"
 class="w-12 h-12 rounded-lg object-cover"/>
@@ -142,48 +139,85 @@ class="w-12 h-12 rounded-lg object-cover"/>
 class="w-10 h-10 bg-white text-black rounded-full flex items-center justify-center">
 <i :data-lucide="isPlaying?'pause':'play'"></i>
 </button>
-
 </div>
 </div>
 
 </main>
 </div>
 
+<!-- LEASE MODAL -->
+<div x-show="modalOpen" x-cloak
+class="fixed inset-0 bg-black/90 flex items-center justify-center z-50">
+
+<div class="bg-[#161b30] p-8 rounded-2xl w-full max-w-md border border-slate-800">
+  <div class="flex justify-between mb-6">
+    <div>
+      <h3 class="text-2xl font-black">Lease Beat</h3>
+      <p class="text-emerald-400 text-xs font-bold" x-text="leasingBeat?.title"></p>
+    </div>
+    <button @click="modalOpen=false">✕</button>
+  </div>
+
+  <form @submit.prevent="submitForm">
+    <input type="hidden" name="beat" :value="leasingBeat?.title">
+
+    <input required name="name" placeholder="Your name"
+      class="w-full mb-3 p-4 rounded-xl bg-slate-900 border border-slate-700">
+
+    <input required type="email" name="email" placeholder="Email"
+      class="w-full mb-4 p-4 rounded-xl bg-slate-900 border border-slate-700">
+
+    <button class="w-full py-4 bg-emerald-500 text-black font-black rounded-xl">
+      GENERATE INVOICE
+    </button>
+  </form>
+</div>
+</div>
+
 <script>
 function playerData(){
-return {
-  genres: {{ genres | tojson }},
+return{
+  genres:{{ genres|tojson }},
   activeGenre:null,
   currentTrack:null,
   audio:new Audio(),
   isPlaying:false,
   mobileMenuOpen:false,
+  modalOpen:false,
+  leasingBeat:null,
 
   init(){
     this.activeGenre=this.genres[0]||null
     lucide.createIcons()
   },
 
-  selectGenre(g){
-    this.activeGenre=g
-  },
+  selectGenre(g){this.activeGenre=g},
 
-  playTrack(beat){
-    if(this.currentTrack?.file===beat.file){
-      this.togglePlay()
-      return
-    }
-    this.audio.src=`/audio/${beat.genre_folder}/${beat.file}`
-    this.currentTrack=beat
+  playTrack(b){
+    if(this.currentTrack?.file===b.file){this.togglePlay();return}
+    this.audio.src=`/audio/${b.genre_folder}/${b.file}`
+    this.currentTrack=b
     this.audio.play()
     this.isPlaying=true
     setTimeout(()=>lucide.createIcons(),50)
   },
 
   togglePlay(){
-    this.isPlaying ? this.audio.pause() : this.audio.play()
+    this.isPlaying?this.audio.pause():this.audio.play()
     this.isPlaying=!this.isPlaying
     setTimeout(()=>lucide.createIcons(),50)
+  },
+
+  openLease(b){
+    this.leasingBeat=b
+    this.modalOpen=true
+  },
+
+  async submitForm(e){
+    const fd=new FormData(e.target)
+    await fetch("https://formspree.io/f/myzpglqg",{method:"POST",body:fd})
+    alert("Invoice request sent")
+    this.modalOpen=false
   }
 }}
 </script>
