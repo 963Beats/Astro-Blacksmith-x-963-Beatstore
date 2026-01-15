@@ -3,6 +3,7 @@ import random
 from pathlib import Path
 from typing import List, Dict, Any
 from functools import lru_cache
+from datetime import datetime, timezone, timedelta
 
 from flask import (
     Flask,
@@ -21,6 +22,9 @@ class Config:
     IMAGE_EXTS = {".jpg", ".jpeg", ".png", ".webp"}
     AUDIO_EXTS = {".mp3", ".wav", ".ogg"}
     DEBUG = False
+
+    # 🔥 Beats uploaded within last X days are marked NEW
+    NEW_UPLOAD_DAYS = 7
 
 
 # ---------------- LOGGING ----------------
@@ -50,6 +54,9 @@ class BeatManager:
             logger.error("❌ beats/ directory does not exist")
             return genres
 
+        now = datetime.now(timezone.utc)
+        new_cutoff = now - timedelta(days=Config.NEW_UPLOAD_DAYS)
+
         for genre in sorted(root.iterdir(), key=lambda d: d.name.lower()):
             if not genre.is_dir():
                 continue
@@ -62,8 +69,6 @@ class BeatManager:
                     i.name for i in img_dir.iterdir()
                     if i.suffix.lower() in Config.IMAGE_EXTS
                 ]
-            else:
-                logger.warning(f"⚠️ Missing images folder: {img_dir}")
 
             audio_files = sorted(
                 [f for f in genre.iterdir() if f.is_file() and f.suffix.lower() in Config.AUDIO_EXTS],
@@ -73,23 +78,28 @@ class BeatManager:
             if not audio_files:
                 continue
 
-            # Shuffle images once to lock mapping per app session
-            shuffled_images = images.copy()
-            random.shuffle(shuffled_images)
+            random.shuffle(images)
 
             beats = []
             for idx, audio in enumerate(audio_files):
-                if shuffled_images:
-                    # Cycle through images if fewer than beats
-                    image_name = shuffled_images[idx % len(shuffled_images)]
-                else:
-                    image_name = "default.jpg"  # fallback if no images in folder
+                uploaded_at = datetime.fromtimestamp(
+                    audio.stat().st_mtime, tz=timezone.utc
+                )
+
+                is_new = uploaded_at >= new_cutoff
+
+                image_name = images[idx % len(images)] if images else "default.jpg"
 
                 beats.append({
                     "title": audio.stem.replace("_", " ").title(),
                     "file": audio.name,
                     "image": image_name,
+                    "is_new": is_new,
+                    "uploaded_at": uploaded_at.isoformat(),
                 })
+
+            # 🔥 Sort new beats to the top
+            beats.sort(key=lambda b: b["is_new"], reverse=True)
 
             genres.append({
                 "name": genre.name.replace("-", " ").title(),
@@ -113,16 +123,11 @@ def index():
 @app.route("/audio/<folder>/<filename>")
 def audio(folder: str, filename: str):
     audio_dir = (Config.BEATS_ROOT / folder).resolve()
-
     if not audio_dir.exists():
-        logger.error(f"❌ Audio folder missing: {audio_dir}")
         abort(404)
 
     response = make_response(
-        send_from_directory(
-            directory=str(audio_dir),
-            path=filename,
-        )
+        send_from_directory(str(audio_dir), filename)
     )
     response.headers["Cache-Control"] = "public, max-age=86400"
     return response
@@ -131,30 +136,14 @@ def audio(folder: str, filename: str):
 @app.route("/visuals/<folder>/<filename>")
 def visuals(folder: str, filename: str):
     img_dir = (Config.BEATS_ROOT / folder / "images").resolve()
-
     if not img_dir.exists():
-        logger.error(f"❌ Image folder missing: {img_dir}")
         abort(404)
 
     response = make_response(
-        send_from_directory(
-            directory=str(img_dir),
-            path=filename,
-        )
+        send_from_directory(str(img_dir), filename)
     )
     response.headers["Cache-Control"] = "public, max-age=604800"
     return response
-
-
-# ---------------- DEBUG (TEMPORARY – SAFE TO REMOVE) ----------------
-@app.route("/debug-images/<folder>")
-def debug_images(folder: str):
-    img_dir = Config.BEATS_ROOT / folder / "images"
-    return {
-        "exists": img_dir.exists(),
-        "resolved_path": str(img_dir.resolve()),
-        "files": [f.name for f in img_dir.iterdir()] if img_dir.exists() else [],
-    }
 
 
 # ---------------- RUN ----------------
