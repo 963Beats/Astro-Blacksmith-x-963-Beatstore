@@ -30,8 +30,8 @@
                 :class="activeGenre?.folder === g.folder
                     ? 'bg-emerald-500/10 text-emerald-400 border-l-4 border-emerald-500'
                     : 'text-slate-400 hover:text-white'"
-                class="w-full text-left px-4 py-3 rounded-lg text-sm font-bold transition-all"
-                x-text="g.name">
+                class="w-full text-left px-4 py-3 rounded-lg text-sm font-bold">
+                <span x-text="g.name"></span>
             </button>
         </template>
     </nav>
@@ -46,7 +46,7 @@
     <p x-show="activeGenre?.beats?.some(b => b.is_new)"
        x-cloak
        class="mt-2 text-xs font-bold tracking-widest text-emerald-400">
-        ✦ NEW TODAY
+        ✦ NEW UPLOADS TODAY
     </p>
 </header>
 
@@ -55,9 +55,9 @@
     <div
         @click="playTrack(beat)"
         :class="beat.is_new
-            ? 'ring-1 ring-emerald-400/70 bg-emerald-500/10 shadow-[0_0_24px_rgba(52,211,153,0.35)]'
+            ? 'ring-1 ring-emerald-400/60 bg-emerald-500/5'
             : ''"
-        class="flex items-center gap-4 p-3 rounded-xl hover:bg-white/5 cursor-pointer transition-all">
+        class="flex items-center gap-4 p-3 rounded-xl hover:bg-white/5 cursor-pointer">
 
         <img :src="`/visuals/${activeGenre.folder}/${beat.image}`"
              class="w-12 h-12 rounded-lg object-cover">
@@ -68,9 +68,7 @@
 
                 <span x-show="beat.is_new"
                       x-cloak
-                      class="text-[10px] px-2 py-0.5 rounded-full
-                             bg-emerald-400 text-black
-                             font-black tracking-widest animate-pulse">
+                      class="text-[10px] px-2 py-0.5 rounded-full bg-emerald-400 text-black font-black">
                     NEW
                 </span>
             </div>
@@ -81,7 +79,7 @@
 
         <button
             @click.stop="openLease(beat)"
-            class="px-4 py-2 bg-emerald-500 text-black text-xs font-black rounded-full hover:scale-105 transition">
+            class="px-4 py-2 bg-emerald-500 text-black text-xs font-black rounded-full">
             BUY
         </button>
     </div>
@@ -91,19 +89,19 @@
 </main>
 </div>
 
-<!-- LEASE MODAL -->
+<!-- MODAL -->
 <div x-show="modalOpen"
      x-cloak
-     class="fixed inset-0 z-50 flex items-center justify-center bg-black/90 p-4">
+     class="fixed inset-0 bg-black/80 flex items-center justify-center p-4 z-50">
 
-<div @click.away="modalOpen=false"
-     class="bg-[#161b30] w-full max-w-md rounded-3xl p-8 border border-slate-700">
+<div class="bg-[#161b30] w-full max-w-md rounded-2xl p-8 border border-slate-700">
 
-<h3 class="text-2xl font-black mb-6 text-emerald-400">Lease Inquiry</h3>
+<h3 class="text-xl font-black text-emerald-400 mb-4">Lease Inquiry</h3>
 
-<form @submit.prevent="submitForm" class="space-y-4">
-    <input type="hidden" name="Beat" :value="leasingBeat?.title">
-    <input type="hidden" name="Genre" :value="activeGenre?.name">
+<form @submit.prevent="submitForm($event)" class="space-y-4">
+
+    <input type="hidden" name="beat_title" :value="leasingBeat?.title || ''">
+    <input type="hidden" name="genre" :value="activeGenre?.name || ''">
 
     <input required name="name" placeholder="Full Name"
            class="w-full bg-slate-800 border border-slate-700 p-3 rounded-xl">
@@ -113,13 +111,14 @@
 
     <button type="submit"
             :disabled="isSubmitting"
-            class="w-full py-4 bg-emerald-500 text-black font-black rounded-xl">
+            class="w-full py-3 bg-emerald-500 text-black font-black rounded-xl">
         <span x-text="isSubmitting ? 'SENDING…' : 'GENERATE INVOICE'"></span>
     </button>
+
 </form>
 
 <button @click="modalOpen=false"
-        class="w-full mt-4 text-slate-500 text-sm font-bold">
+        class="mt-4 text-xs text-slate-500 font-bold w-full">
     Cancel
 </button>
 
@@ -134,7 +133,6 @@ activeGenre:null,
 currentTrack:null,
 audio:new Audio(),
 isPlaying:false,
-
 modalOpen:false,
 leasingBeat:null,
 isSubmitting:false,
@@ -176,13 +174,13 @@ async submitForm(e){
         })
 
         if(res.ok){
-            alert("Invoice request sent!")
+            alert("Invoice request sent")
             this.modalOpen=false
         }else{
-            alert("Failed to send request.")
+            alert("Failed to send")
         }
     }catch{
-        alert("Network error.")
+        alert("Network error")
     }finally{
         this.isSubmitting=false
     }

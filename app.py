@@ -1,39 +1,19 @@
-import logging
+import os
 import random
+from datetime import datetime
+from functools import lru_cache
 from pathlib import Path
 from typing import List, Dict, Any
-from functools import lru_cache
-from datetime import datetime
 
-from flask import (
-    Flask,
-    send_from_directory,
-    render_template,
-    abort,
-    make_response,
-)
+from flask import Flask, render_template
 
-# ---------------- BASE DIR ----------------
-BASE_DIR = Path(__file__).resolve().parent
+app = Flask(__name__)
 
 # ---------------- CONFIG ----------------
 class Config:
-    BEATS_ROOT = BASE_DIR / "beats"
-    IMAGE_EXTS = {".jpg", ".jpeg", ".png", ".webp"}
+    BEATS_ROOT = Path("beats")
     AUDIO_EXTS = {".mp3", ".wav", ".ogg"}
-    DEBUG = False
-
-
-# ---------------- LOGGING ----------------
-logging.basicConfig(
-    level=logging.INFO,
-    format="%(asctime)s [%(levelname)s] %(message)s",
-)
-logger = logging.getLogger(__name__)
-
-# ---------------- APP ----------------
-app = Flask(__name__)
-app.config.from_object(Config)
+    IMAGE_EXTS = {".jpg", ".jpeg", ".png", ".webp"}
 
 
 # ---------------- BEAT MANAGER ----------------
@@ -46,16 +26,10 @@ class BeatManager:
         root = Config.BEATS_ROOT
 
         if not root.exists():
-            logger.error("beats directory missing")
             return genres
 
-        # 🔥 TODAY window (local server time)
         now = datetime.now()
-        today_start = datetime(
-            year=now.year,
-            month=now.month,
-            day=now.day
-        )
+        today_start = datetime(now.year, now.month, now.day)
 
         for genre in sorted(root.iterdir(), key=lambda d: d.name.lower()):
             if not genre.is_dir():
@@ -74,7 +48,7 @@ class BeatManager:
                     f for f in genre.iterdir()
                     if f.is_file() and f.suffix.lower() in Config.AUDIO_EXTS
                 ],
-                key=lambda f: f.name.lower(),
+                key=lambda f: f.name.lower()
             )
 
             if not audio_files:
@@ -85,20 +59,16 @@ class BeatManager:
             beats = []
             for idx, audio in enumerate(audio_files):
                 uploaded_at = datetime.fromtimestamp(audio.stat().st_mtime)
-
-                # ✅ NEW only if uploaded today
                 is_new = uploaded_at >= today_start
-
-                image = images[idx % len(images)] if images else "default.jpg"
 
                 beats.append({
                     "title": audio.stem.replace("_", " ").title(),
                     "file": audio.name,
-                    "image": image,
+                    "image": images[idx % len(images)] if images else "default.jpg",
                     "is_new": is_new,
                 })
 
-            # 🔝 NEW beats always on top
+            # NEW beats first
             beats.sort(key=lambda b: b["is_new"], reverse=True)
 
             genres.append({
@@ -107,45 +77,15 @@ class BeatManager:
                 "beats": beats,
             })
 
-        logger.info(f"Loaded {len(genres)} genres")
         return genres
 
 
 # ---------------- ROUTES ----------------
 @app.route("/")
 def index():
-    return render_template(
-        "index.html",
-        genres=BeatManager.get_all_genres(),
-    )
+    genres = BeatManager.get_all_genres()
+    return render_template("index.html", genres=genres)
 
 
-@app.route("/audio/<folder>/<filename>")
-def audio(folder, filename):
-    audio_dir = (Config.BEATS_ROOT / folder).resolve()
-    if not audio_dir.exists():
-        abort(404)
-
-    response = make_response(
-        send_from_directory(str(audio_dir), filename)
-    )
-    response.headers["Cache-Control"] = "public, max-age=86400"
-    return response
-
-
-@app.route("/visuals/<folder>/<filename>")
-def visuals(folder, filename):
-    img_dir = (Config.BEATS_ROOT / folder / "images").resolve()
-    if not img_dir.exists():
-        abort(404)
-
-    response = make_response(
-        send_from_directory(str(img_dir), filename)
-    )
-    response.headers["Cache-Control"] = "public, max-age=604800"
-    return response
-
-
-# ---------------- RUN ----------------
 if __name__ == "__main__":
-    app.run(host="0.0.0.0", port=5000)
+    app.run(debug=True)
