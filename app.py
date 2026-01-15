@@ -1,5 +1,5 @@
-import os
 import random
+import re
 from datetime import datetime
 from functools import lru_cache
 from pathlib import Path
@@ -62,7 +62,7 @@ class BeatManager:
             beats = []
             for idx, audio in enumerate(audio_files):
                 try:
-                    ts = audio.stat().st_ctime or audio.stat().st_mtime
+                    ts = audio.stat().st_mtime
                     uploaded_at = datetime.fromtimestamp(ts)
                     is_new = today_start <= uploaded_at <= today_end
                 except Exception:
@@ -100,14 +100,14 @@ def beat_page(genre, slug):
     for g in genres:
         if g["folder"] == genre:
             for b in g["beats"]:
-                if b["title"].lower().replace(" ", "-") == slug:
+                beat_slug = re.sub(r"\s+", "-", b["title"].lower())
+                if beat_slug == slug:
                     return render_template(
                         "index.html",
                         genres=genres,
                         og_beat=b,
                         og_genre=g
                     )
-
     abort(404)
 
 
