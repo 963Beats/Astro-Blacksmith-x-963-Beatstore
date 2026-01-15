@@ -5,6 +5,19 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>963 | Beat Store</title>
 
+{% if og_beat %}
+<meta property="og:title" content="{{ og_beat.title }}">
+<meta property="og:description" content="Prod. by 963 • Premium Beat">
+<meta property="og:image" content="{{ request.url_root }}visuals/{{ og_beat.genre_folder }}/{{ og_beat.image }}">
+<meta property="og:type" content="music.song">
+<meta property="og:url" content="{{ request.url }}">
+<meta name="twitter:card" content="summary_large_image">
+{% else %}
+<meta property="og:title" content="963 • Premium Beats">
+<meta property="og:description" content="Underground premium beats">
+<meta name="twitter:card" content="summary_large_image">
+{% endif %}
+
 <script src="https://cdn.tailwindcss.com"></script>
 <script defer src="https://unpkg.com/alpinejs@3.x.x/dist/cdn.min.js"></script>
 <script src="https://unpkg.com/lucide@latest"></script>
@@ -25,7 +38,6 @@ x-init="init()">
       <h2 class="font-black text-emerald-400">Genres</h2>
       <button @click="mobileMenuOpen=false">✕</button>
     </div>
-
     <template x-for="g in genres" :key="g.folder">
       <button
         @click="selectGenre(g); mobileMenuOpen=false"
@@ -44,7 +56,6 @@ x-init="init()">
     <h1 class="text-xl font-black text-emerald-400">963</h1>
     <p class="text-[10px] text-slate-500 font-bold tracking-widest">PREMIUM BEATS</p>
   </div>
-
   <nav class="flex-1 px-4 space-y-1 overflow-y-auto">
     <template x-for="g in genres" :key="g.folder">
       <button
@@ -65,25 +76,21 @@ x-init="init()">
 <!-- MOBILE HEADER -->
 <div class="md:hidden p-6 flex justify-between items-center bg-[#0f1322] border-b border-slate-800 sticky top-0 z-40">
   <h1 class="font-black text-emerald-400">963</h1>
-  <button @click="mobileMenuOpen=true">
-    <i data-lucide="menu"></i>
-  </button>
+  <button @click="mobileMenuOpen=true"><i data-lucide="menu"></i></button>
 </div>
 
 <!-- HEADER -->
 <header class="p-8">
   <h1 class="text-4xl font-black" x-text="activeGenre?.name || 'Select Genre'"></h1>
-  <p x-show="activeGenre?.beats?.some(b=>b.is_new)"
-     x-cloak
+  <p x-show="activeGenre?.beats?.some(b=>b.is_new)" x-cloak
      class="mt-2 text-xs font-black text-emerald-400 tracking-widest">
      NEW UPLOADS TODAY
   </p>
 </header>
 
-<!-- BEATS LIST -->
+<!-- BEAT LIST -->
 <div class="px-6 pb-40 space-y-2">
 <template x-for="beat in activeGenre?.beats || []" :key="beat.file">
-
 <div
 @click="openBeat(beat)"
 :class="[
@@ -92,8 +99,7 @@ x-init="init()">
 ]"
 class="flex items-center gap-4 p-3 rounded-xl hover:bg-white/5 cursor-pointer">
 
-<img
-:src="`/visuals/${beat.genre_folder}/${beat.image}`"
+<img :src="`/visuals/${beat.genre_folder}/${beat.image}`"
 class="w-12 h-12 rounded-lg object-cover"/>
 
 <div class="flex-1">
@@ -108,8 +114,7 @@ class="w-12 h-12 rounded-lg object-cover"/>
        x-text="activeGenre.name"></div>
 </div>
 
-<button @click.stop="shareBeat(beat)"
-class="p-2 rounded-full hover:bg-white/10">
+<button @click.stop="shareBeat(beat)" class="p-2 rounded-full hover:bg-white/10">
 <i data-lucide="share-2" class="w-4 h-4"></i>
 </button>
 
@@ -117,7 +122,6 @@ class="p-2 rounded-full hover:bg-white/10">
 class="px-5 py-2 bg-emerald-500 hover:bg-emerald-400 text-black text-[10px] font-black rounded-full uppercase">
 BUY
 </button>
-
 </div>
 </template>
 </div>
@@ -125,18 +129,14 @@ BUY
 <!-- PLAYER BAR -->
 <div x-show="currentTrack" x-cloak
 class="fixed bottom-0 left-0 right-0 bg-[#0f1322]/95 border-t border-slate-800 p-4">
-
 <div class="flex items-center gap-4">
-<img
-:src="`/visuals/${currentTrack.genre_folder}/${currentTrack.image}`"
+<img :src="`/visuals/${currentTrack.genre_folder}/${currentTrack.image}`"
 class="w-12 h-12 rounded-lg object-cover"/>
-
 <div class="flex-1">
   <div class="font-bold" x-text="currentTrack.title"></div>
   <div class="text-[10px] text-emerald-400 font-black uppercase"
        x-text="activeGenre?.name"></div>
 </div>
-
 <button @click="togglePlay()"
 class="w-10 h-10 bg-white text-black rounded-full flex items-center justify-center">
 <i :data-lucide="isPlaying?'pause':'play'"></i>
@@ -147,10 +147,9 @@ class="w-10 h-10 bg-white text-black rounded-full flex items-center justify-cent
 </main>
 </div>
 
-<!-- BEAT FOCUS OVERLAY -->
+<!-- BEAT FOCUS -->
 <div x-show="focusedBeat" x-cloak
 class="fixed inset-0 z-50 bg-black/90 flex items-center justify-center p-6">
-
 <div class="bg-[#0f1322] rounded-2xl max-w-lg w-full p-6 border border-slate-800 relative">
 <button @click="focusedBeat=null"
 class="absolute top-4 right-4 text-slate-400 hover:text-white">✕</button>
@@ -163,16 +162,11 @@ class="w-full aspect-square rounded-xl object-cover mb-6">
 x-text="activeGenre.name"></p>
 
 <div class="flex gap-3">
-<button @click="togglePlay()"
-class="flex-1 py-3 bg-white text-black font-black rounded-xl">
+<button @click="togglePlay()" class="flex-1 py-3 bg-white text-black font-black rounded-xl">
 <span x-text="isPlaying ? 'PAUSE' : 'PLAY'"></span>
 </button>
-
 <button @click="openLease(focusedBeat)"
-class="flex-1 py-3 bg-emerald-500 text-black font-black rounded-xl">
-BUY
-</button>
-
+class="flex-1 py-3 bg-emerald-500 text-black font-black rounded-xl">BUY</button>
 <button @click="shareBeat(focusedBeat)"
 class="p-3 rounded-xl bg-slate-800 hover:bg-slate-700">
 <i data-lucide="share-2"></i>
@@ -195,13 +189,10 @@ class="fixed inset-0 bg-black/90 flex items-center justify-center z-50">
 
 <form @submit.prevent="submitForm">
 <input type="hidden" name="beat" :value="leasingBeat?.title">
-
 <input required name="name" placeholder="Your name"
 class="w-full mb-3 p-4 rounded-xl bg-slate-900 border border-slate-700">
-
 <input required type="email" name="email" placeholder="Email"
 class="w-full mb-4 p-4 rounded-xl bg-slate-900 border border-slate-700">
-
 <button class="w-full py-4 bg-emerald-500 text-black font-black rounded-xl">
 GENERATE INVOICE
 </button>
@@ -229,15 +220,24 @@ const b=params.get("beat")
 
 this.activeGenre=this.genres.find(x=>x.folder===g)||this.genres[0]||null
 
-this.$nextTick(()=>{
-if(g&&b&&this.activeGenre){
+const parts=location.pathname.split("/")
+if(parts[1]==="beat"){
+const genre=this.genres.find(x=>x.folder===parts[2])
+if(genre){
+this.activeGenre=genre
+const beat=genre.beats.find(
+x=>x.title.toLowerCase().replace(/\s+/g,'-')===parts[3]
+)
+if(beat){this.$nextTick(()=>this.openBeat(beat))}
+}
+}else if(g&&b&&this.activeGenre){
 const beat=this.activeGenre.beats.find(
 x=>x.title.toLowerCase().replace(/\s+/g,'-')===b
 )
-if(beat){this.openBeat(beat)}
+if(beat){this.$nextTick(()=>this.openBeat(beat))}
 }
+
 lucide.createIcons()
-})
 },
 
 selectGenre(g){
@@ -250,24 +250,20 @@ openBeat(b){
 this.focusedBeat=b
 this.playTrack(b)
 const slug=b.title.toLowerCase().replace(/\s+/g,'-')
-history.pushState({}, "", `/?genre=${b.genre_folder}&beat=${slug}`)
+history.pushState({}, "", `/beat/${b.genre_folder}/${slug}`)
 },
 
 playTrack(b){
-if(this.currentTrack?.file===b.file){
-this.togglePlay();return
-}
+if(this.currentTrack?.file===b.file){this.togglePlay();return}
 this.audio.src=`/audio/${b.genre_folder}/${b.file}`
 this.currentTrack=b
 this.audio.play()
 this.isPlaying=true
-setTimeout(()=>lucide.createIcons(),50)
 },
 
 togglePlay(){
 this.isPlaying?this.audio.pause():this.audio.play()
 this.isPlaying=!this.isPlaying
-setTimeout(()=>lucide.createIcons(),50)
 },
 
 openLease(b){
@@ -284,15 +280,16 @@ this.modalOpen=false
 
 async shareBeat(b){
 const slug=b.title.toLowerCase().replace(/\s+/g,'-')
-const url=`${location.origin}/?genre=${b.genre_folder}&beat=${slug}`
+const url=`${location.origin}/beat/${b.genre_folder}/${slug}`
 if(navigator.share){
-await navigator.share({title:b.title,url})
+await navigator.share({title:b.title,text:"Prod. by 963 • Premium Beat",url})
 }else{
 await navigator.clipboard.writeText(url)
 alert("Beat link copied")
 }
 }
-}}
+}
+}
 </script>
 
 </body>
