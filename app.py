@@ -3,7 +3,7 @@ import random
 from pathlib import Path
 from typing import List, Dict, Any
 from functools import lru_cache
-from datetime import datetime, timezone, timedelta
+from datetime import datetime
 
 from flask import (
     Flask,
@@ -23,9 +23,6 @@ class Config:
     AUDIO_EXTS = {".mp3", ".wav", ".ogg"}
     DEBUG = False
 
-    # 🔥 Beats uploaded within last X days are marked NEW
-    NEW_UPLOAD_DAYS = 7
-
 
 # ---------------- LOGGING ----------------
 logging.basicConfig(
@@ -38,8 +35,6 @@ logger = logging.getLogger(__name__)
 app = Flask(__name__)
 app.config.from_object(Config)
 
-logger.info(f"BEATS_ROOT resolved to: {Config.BEATS_ROOT.resolve()}")
-
 
 # ---------------- BEAT MANAGER ----------------
 class BeatManager:
@@ -47,23 +42,27 @@ class BeatManager:
     @staticmethod
     @lru_cache(maxsize=1)
     def get_all_genres() -> List[Dict[str, Any]]:
-        genres: List[Dict[str, Any]] = []
+        genres = []
         root = Config.BEATS_ROOT
 
         if not root.exists():
-            logger.error("❌ beats/ directory does not exist")
+            logger.error("beats directory missing")
             return genres
 
-        now = datetime.now(timezone.utc)
-        new_cutoff = now - timedelta(days=Config.NEW_UPLOAD_DAYS)
+        # 🔥 TODAY window (local server time)
+        now = datetime.now()
+        today_start = datetime(
+            year=now.year,
+            month=now.month,
+            day=now.day
+        )
 
         for genre in sorted(root.iterdir(), key=lambda d: d.name.lower()):
             if not genre.is_dir():
                 continue
 
             img_dir = genre / "images"
-            images: List[str] = []
-
+            images = []
             if img_dir.exists():
                 images = [
                     i.name for i in img_dir.iterdir()
@@ -71,7 +70,10 @@ class BeatManager:
                 ]
 
             audio_files = sorted(
-                [f for f in genre.iterdir() if f.is_file() and f.suffix.lower() in Config.AUDIO_EXTS],
+                [
+                    f for f in genre.iterdir()
+                    if f.is_file() and f.suffix.lower() in Config.AUDIO_EXTS
+                ],
                 key=lambda f: f.name.lower(),
             )
 
@@ -82,23 +84,21 @@ class BeatManager:
 
             beats = []
             for idx, audio in enumerate(audio_files):
-                uploaded_at = datetime.fromtimestamp(
-                    audio.stat().st_mtime, tz=timezone.utc
-                )
+                uploaded_at = datetime.fromtimestamp(audio.stat().st_mtime)
 
-                is_new = uploaded_at >= new_cutoff
+                # ✅ NEW only if uploaded today
+                is_new = uploaded_at >= today_start
 
-                image_name = images[idx % len(images)] if images else "default.jpg"
+                image = images[idx % len(images)] if images else "default.jpg"
 
                 beats.append({
                     "title": audio.stem.replace("_", " ").title(),
                     "file": audio.name,
-                    "image": image_name,
+                    "image": image,
                     "is_new": is_new,
-                    "uploaded_at": uploaded_at.isoformat(),
                 })
 
-            # 🔥 Sort new beats to the top
+            # 🔝 NEW beats always on top
             beats.sort(key=lambda b: b["is_new"], reverse=True)
 
             genres.append({
@@ -107,7 +107,7 @@ class BeatManager:
                 "beats": beats,
             })
 
-        logger.info(f"✅ Loaded {len(genres)} genres")
+        logger.info(f"Loaded {len(genres)} genres")
         return genres
 
 
@@ -121,7 +121,7 @@ def index():
 
 
 @app.route("/audio/<folder>/<filename>")
-def audio(folder: str, filename: str):
+def audio(folder, filename):
     audio_dir = (Config.BEATS_ROOT / folder).resolve()
     if not audio_dir.exists():
         abort(404)
@@ -134,7 +134,7 @@ def audio(folder: str, filename: str):
 
 
 @app.route("/visuals/<folder>/<filename>")
-def visuals(folder: str, filename: str):
+def visuals(folder, filename):
     img_dir = (Config.BEATS_ROOT / folder / "images").resolve()
     if not img_dir.exists():
         abort(404)

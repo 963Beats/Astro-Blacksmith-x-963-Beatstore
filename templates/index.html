@@ -46,7 +46,7 @@
     <p x-show="activeGenre?.beats?.some(b => b.is_new)"
        x-cloak
        class="mt-2 text-xs font-bold tracking-widest text-emerald-400">
-        ✦ NEW UPLOADS AVAILABLE
+        ✦ NEW TODAY
     </p>
 </header>
 
@@ -55,7 +55,7 @@
     <div
         @click="playTrack(beat)"
         :class="beat.is_new
-            ? 'ring-1 ring-emerald-400/60 bg-emerald-500/5 shadow-[0_0_20px_rgba(52,211,153,0.25)]'
+            ? 'ring-1 ring-emerald-400/70 bg-emerald-500/10 shadow-[0_0_24px_rgba(52,211,153,0.35)]'
             : ''"
         class="flex items-center gap-4 p-3 rounded-xl hover:bg-white/5 cursor-pointer transition-all">
 
@@ -91,6 +91,41 @@
 </main>
 </div>
 
+<!-- LEASE MODAL -->
+<div x-show="modalOpen"
+     x-cloak
+     class="fixed inset-0 z-50 flex items-center justify-center bg-black/90 p-4">
+
+<div @click.away="modalOpen=false"
+     class="bg-[#161b30] w-full max-w-md rounded-3xl p-8 border border-slate-700">
+
+<h3 class="text-2xl font-black mb-6 text-emerald-400">Lease Inquiry</h3>
+
+<form @submit.prevent="submitForm" class="space-y-4">
+    <input type="hidden" name="Beat" :value="leasingBeat?.title">
+    <input type="hidden" name="Genre" :value="activeGenre?.name">
+
+    <input required name="name" placeholder="Full Name"
+           class="w-full bg-slate-800 border border-slate-700 p-3 rounded-xl">
+
+    <input required type="email" name="email" placeholder="Email Address"
+           class="w-full bg-slate-800 border border-slate-700 p-3 rounded-xl">
+
+    <button type="submit"
+            :disabled="isSubmitting"
+            class="w-full py-4 bg-emerald-500 text-black font-black rounded-xl">
+        <span x-text="isSubmitting ? 'SENDING…' : 'GENERATE INVOICE'"></span>
+    </button>
+</form>
+
+<button @click="modalOpen=false"
+        class="w-full mt-4 text-slate-500 text-sm font-bold">
+    Cancel
+</button>
+
+</div>
+</div>
+
 <script>
 function playerData(){
 return{
@@ -99,9 +134,10 @@ activeGenre:null,
 currentTrack:null,
 audio:new Audio(),
 isPlaying:false,
-progress:0,
+
 modalOpen:false,
 leasingBeat:null,
+isSubmitting:false,
 
 init(){
     this.activeGenre=this.genres[0]||null
@@ -126,6 +162,30 @@ playTrack(beat){
 openLease(beat){
     this.leasingBeat=beat
     this.modalOpen=true
+},
+
+async submitForm(e){
+    this.isSubmitting=true
+    const formData=new FormData(e.target)
+
+    try{
+        const res=await fetch("https://formspree.io/f/myzpglqg",{
+            method:"POST",
+            body:formData,
+            headers:{Accept:"application/json"}
+        })
+
+        if(res.ok){
+            alert("Invoice request sent!")
+            this.modalOpen=false
+        }else{
+            alert("Failed to send request.")
+        }
+    }catch{
+        alert("Network error.")
+    }finally{
+        this.isSubmitting=false
+    }
 }
 }}
 </script>
