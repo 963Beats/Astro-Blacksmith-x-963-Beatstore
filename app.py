@@ -23,35 +23,28 @@ class BeatManager:
     @staticmethod
     @lru_cache(maxsize=1)
     def get_all_genres() -> List[Dict[str, Any]]:
-        """
-        Scans the BEATS_ROOT directory for genres and their associated beats.
-        Results are cached for performance.
-        """
         genres = []
         root = Config.BEATS_ROOT
 
         if not root.exists():
-            print(f"Warning: {root} directory not found.")
             return genres
 
         now = datetime.now()
         today_start = datetime(now.year, now.month, now.day)
+        today_end = today_start.replace(hour=23, minute=59, second=59)
 
-        # Iterate through directories in BEATS_ROOT
         for genre_dir in sorted(root.iterdir(), key=lambda d: d.name.lower()):
             if not genre_dir.is_dir():
                 continue
 
-            # Look for images in a subfolder named 'images'
             img_dir = genre_dir / "images"
             images = []
-            if img_dir.exists() and img_dir.is_dir():
+            if img_dir.exists():
                 images = [
                     i.name for i in img_dir.iterdir()
                     if i.suffix.lower() in Config.IMAGE_EXTS
                 ]
 
-            # Find all audio files in the genre directory
             audio_files = sorted(
                 [
                     f for f in genre_dir.iterdir()
@@ -63,15 +56,15 @@ class BeatManager:
             if not audio_files:
                 continue
 
-            # Shuffle images to assign them randomly to beats
             if images:
                 random.shuffle(images)
 
             beats = []
             for idx, audio in enumerate(audio_files):
                 try:
-                    uploaded_at = datetime.fromtimestamp(audio.stat().st_mtime)
-                    is_new = uploaded_at >= today_start
+                    ts = audio.stat().st_ctime or audio.stat().st_mtime
+                    uploaded_at = datetime.fromtimestamp(ts)
+                    is_new = today_start <= uploaded_at <= today_end
                 except Exception:
                     is_new = False
 
@@ -80,9 +73,9 @@ class BeatManager:
                     "file": audio.name,
                     "image": images[idx % len(images)] if images else Config.DEFAULT_IMAGE,
                     "is_new": is_new,
+                    "genre_folder": genre_dir.name,
                 })
 
-            # Sort beats: NEW ones first, then alphabetically by title
             beats.sort(key=lambda b: (not b["is_new"], b["title"]))
 
             genres.append({
@@ -97,37 +90,32 @@ class BeatManager:
 # ---------------- ROUTES ----------------
 @app.route("/")
 def index():
-    """Main page route."""
-    genres = BeatManager.get_all_genres()
-    return render_template("index.html", genres=genres)
+    return render_template("index.html", genres=BeatManager.get_all_genres())
+
 
 @app.route("/audio/<genre>/<filename>")
 def serve_audio(genre, filename):
-    """Serves audio files from the genre directory."""
-    safe_genre = Path(genre).name  # Basic path traversal protection
-    genre_path = Config.BEATS_ROOT / safe_genre
-    if not genre_path.exists():
+    safe = Path(genre).name
+    path = Config.BEATS_ROOT / safe
+    if not path.exists():
         abort(404)
-    return send_from_directory(genre_path, filename)
+    return send_from_directory(path, filename)
+
 
 @app.route("/visuals/<genre>/<filename>")
 def serve_visuals(genre, filename):
-    """Serves images from the genre/images directory or a default image."""
     if filename == Config.DEFAULT_IMAGE:
+        return send_from_directory("static/visuals", filename)
+
+    safe = Path(genre).name
+    path = Config.BEATS_ROOT / safe / "images"
+    if not path.exists():
         return send_from_directory("static/visuals", Config.DEFAULT_IMAGE)
-    
-    safe_genre = Path(genre).name
-    genre_path = Config.BEATS_ROOT / safe_genre / "images"
-    if not genre_path.exists():
-        # Fallback to default if genre images dir doesn't exist
-        return send_from_directory("static/visuals", Config.DEFAULT_IMAGE)
-        
-    return send_from_directory(genre_path, filename)
+
+    return send_from_directory(path, filename)
 
 
 if __name__ == "__main__":
-    # Ensure directories exist for local development
     Config.BEATS_ROOT.mkdir(exist_ok=True)
     Path("static/visuals").mkdir(parents=True, exist_ok=True)
-    
     app.run(debug=True, port=5000)
