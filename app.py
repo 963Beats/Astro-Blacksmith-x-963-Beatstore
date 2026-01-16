@@ -1,6 +1,6 @@
 import random
 import re
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import List, Dict, Any
 
@@ -14,7 +14,7 @@ class Config:
     AUDIO_EXTS = {".mp3", ".wav", ".ogg"}
     IMAGE_EXTS = {".jpg", ".jpeg", ".png", ".webp"}
     DEFAULT_IMAGE = "default.jpg"
-    NEW_WINDOW_HOURS = 24  # beats uploaded in last 24h
+    NEW_WINDOW_HOURS = 24
 
 
 # ---------------- BEAT MANAGER ----------------
@@ -28,14 +28,14 @@ class BeatManager:
         if not root.exists():
             return genres
 
-        now = datetime.now()
+        now = datetime.now(timezone.utc)
         new_cutoff = now - timedelta(hours=Config.NEW_WINDOW_HOURS)
 
         for genre_dir in sorted(root.iterdir(), key=lambda d: d.name.lower()):
             if not genre_dir.is_dir():
                 continue
 
-            # images
+            # Images
             img_dir = genre_dir / "images"
             images = []
             if img_dir.exists():
@@ -43,27 +43,27 @@ class BeatManager:
                     i.name for i in img_dir.iterdir()
                     if i.suffix.lower() in Config.IMAGE_EXTS
                 ]
+                random.shuffle(images)
 
-            # audio files (newest first)
+            # Audio files (newest first)
             audio_files = sorted(
                 [
                     f for f in genre_dir.iterdir()
                     if f.is_file() and f.suffix.lower() in Config.AUDIO_EXTS
                 ],
                 key=lambda f: f.stat().st_mtime,
-                reverse=True,
+                reverse=True
             )
 
             if not audio_files:
                 continue
 
-            if images:
-                random.shuffle(images)
-
             beats = []
             for idx, audio in enumerate(audio_files):
                 try:
-                    uploaded_at = datetime.fromtimestamp(audio.stat().st_mtime)
+                    uploaded_at = datetime.fromtimestamp(
+                        audio.stat().st_mtime, tz=timezone.utc
+                    )
                     is_new = uploaded_at >= new_cutoff
                 except Exception:
                     uploaded_at = None
@@ -74,17 +74,12 @@ class BeatManager:
                     "file": audio.name,
                     "image": images[idx % len(images)] if images else Config.DEFAULT_IMAGE,
                     "is_new": is_new,
-                    "uploaded_at": uploaded_at,
+                    "uploaded_at": uploaded_at.timestamp() if uploaded_at else 0,
                     "genre_folder": genre_dir.name,
                 })
 
-            # NEW beats first, then newest → oldest
-            beats.sort(
-                key=lambda b: (
-                    not b["is_new"],
-                    -(b["uploaded_at"].timestamp() if b["uploaded_at"] else 0)
-                )
-            )
+            # Sort: NEW first → newest → oldest
+            beats.sort(key=lambda b: (not b["is_new"], -b["uploaded_at"]))
 
             genres.append({
                 "name": genre_dir.name.replace("-", " ").title(),

@@ -163,6 +163,7 @@ class="w-full py-4 bg-emerald-500 text-black font-black rounded-xl">
 </div>
 </div>
 
+<!-- ONLY SCRIPT SECTION CHANGED — EVERYTHING ELSE SAME -->
 <script>
 function playerData(){
 return{
@@ -186,6 +187,7 @@ selectGenre(g){
 this.activeGenre=g
 this.focusedBeat=null
 this.currentTrack=null
+this.modalOpen=false
 history.pushState({}, "", "/")
 },
 
@@ -214,8 +216,15 @@ setTimeout(()=>lucide.createIcons(),50)
 },
 
 openLease(b){
+this.focusedBeat=null   // 🔑 FIX
 this.leasingBeat=b
 this.modalOpen=true
+history.pushState({}, "", "/")
+},
+
+closeModal(){
+this.modalOpen=false
+this.leasingBeat=null
 },
 
 async submitForm(e){
@@ -242,6 +251,7 @@ alert("Beat link copied")
 }
 }}
 </script>
+
 
 </body>
 </html>
