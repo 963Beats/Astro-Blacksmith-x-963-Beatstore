@@ -1,0 +1,312 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>963 Beat Store</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+html,body{
+ height:100%;
+ background:#000;
+ color:#d6d6d6;
+ font-family:'MS Sans Serif',Geneva,sans-serif;
+ overflow:hidden
+}
+
+/* BOOT */
+#boot-screen{
+ position:fixed;inset:0;background:#000;
+ display:flex;flex-direction:column;
+ align-items:center;justify-content:center;
+ z-index:9999;transition:opacity 1s
+}
+#boot-screen.hidden{opacity:0;pointer-events:none}
+.progress{
+ width:360px;height:18px;
+ border:2px solid #777;margin-top:20px
+}
+.fill{
+ height:100%;width:0;
+ background:#0a84ff;transition:width 2.5s
+}
+
+/* APP */
+#main{
+ position:fixed;inset:0;
+ opacity:0;pointer-events:none;
+ transition:opacity 1s;
+ background:#0a0f18;
+ display:flex;align-items:center;justify-content:center
+}
+#main.visible{opacity:1;pointer-events:auto}
+
+.explorer{
+ width:100%;max-width:1000px;height:680px;
+ background:#10141c;border:2px solid #2a2f3a;
+ display:flex;flex-direction:column
+}
+
+.title{
+ background:#161b26;border-bottom:2px solid #2a2f3a;
+ padding:6px;display:flex;gap:6px
+}
+.btn{
+ background:#1e2433;border:2px solid #2a2f3a;
+ padding:4px 10px;color:#fff;
+ cursor:pointer;font-size:12px
+}
+.btn:active{background:#000}
+
+.path{
+ padding:6px 10px;
+ background:#0c111a;
+ border-bottom:2px solid #2a2f3a;
+ font-size:12px
+}
+
+.view{flex:1;overflow:auto;padding:14px}
+.grid{
+ display:grid;
+ grid-template-columns:repeat(auto-fill,96px);
+ gap:16px
+}
+
+.item{text-align:center;cursor:pointer}
+.icon{
+ width:64px;height:64px;margin:0 auto 6px;
+ background-size:contain;
+ background-repeat:no-repeat;
+ background-position:center
+}
+.folder{
+ background-image:url('data:image/svg+xml;utf8,\
+ <svg xmlns="http://www.w3.org/2000/svg" width="64" height="64">\
+ <rect x="4" y="18" width="56" height="38" fill="%233b3f2a" stroke="%23000"/>\
+ <rect x="4" y="10" width="28" height="12" fill="%235a5f3a" stroke="%23000"/>\
+ </svg>')
+}
+
+.thumb img{
+ width:64px;height:64px;object-fit:cover;
+ border:1px solid #333;background:#000
+}
+
+.name{
+ font-size:11px;
+ word-break:break-word
+}
+
+.new{
+ display:inline-block;
+ margin-left:4px;
+ padding:1px 4px;
+ font-size:9px;
+ background:#0a84ff;
+ color:#fff
+}
+
+/* MODAL */
+.modal{
+ position:fixed;inset:0;
+ background:rgba(0,0,0,.75);
+ display:none;align-items:center;justify-content:center
+}
+.modal-box{
+ background:#10141c;
+ border:2px solid #2a2f3a;
+ padding:16px;width:90%;
+ max-width:480px
+}
+
+.player{
+ background:#000;
+ border:2px inset #333;
+ padding:6px;margin:8px 0;
+ font-size:11px
+}
+
+input,select,textarea{
+ width:100%;margin:6px 0;
+ background:#000;border:1px solid #333;
+ color:#fff;padding:6px
+}
+
+button.buy{
+ width:100%;padding:8px;
+ background:#0a84ff;border:none;
+ color:#fff;margin-top:6px;
+ cursor:pointer
+}
+
+.success{
+ text-align:center;font-size:13px
+}
+
+@media(max-width:720px){
+ .explorer{height:100%;max-width:100%;border:none}
+ .grid{grid-template-columns:repeat(3,1fr)}
+}
+</style>
+</head>
+
+<body>
+
+<div id="boot-screen">
+ <img src="pic/logo.png" style="max-width:280px">
+ <div class="progress"><div class="fill" id="fill"></div></div>
+</div>
+
+<div id="main">
+ <div class="explorer">
+  <div class="title">
+   <button class="btn" onclick="goBack()">⬅ Back</button>
+   <button class="btn" onclick="goHome()">🏠 Home</button>
+  </div>
+  <div class="path" id="path">C:\963\Beats</div>
+  <div class="view">
+   <div class="grid" id="grid"></div>
+  </div>
+ </div>
+</div>
+
+<div class="modal" id="modal">
+ <div class="modal-box" id="modalBox"></div>
+</div>
+
+<script>
+const grid=document.getElementById("grid");
+const pathBar=document.getElementById("path");
+const modal=document.getElementById("modal");
+const modalBox=document.getElementById("modalBox");
+
+let data={},stack=[];
+const NEW_DAYS=7;
+
+function isNew(date){
+ return (Date.now()-date)<NEW_DAYS*86400000;
+}
+
+async function scan(){
+ try{
+  const r=await fetch('/');
+  const d=new DOMParser().parseFromString(await r.text(),'text/html');
+
+  for(const a of d.querySelectorAll('a')){
+   if(a.textContent.endsWith('/')&&!['pic/','../'].includes(a.textContent)){
+    const g=a.textContent.slice(0,-1);
+    data[g]={};
+
+    const sr=await fetch(a.textContent);
+    const sd=new DOMParser().parseFromString(await sr.text(),'text/html');
+
+    for(const b of sd.querySelectorAll('a')){
+     if(/\.(mp3|wav|ogg)$/i.test(b.textContent)){
+      const n=b.textContent.replace(/\..*/,'');
+      const head=await fetch(a.textContent+b.textContent,{method:'HEAD'});
+      const mod=new Date(head.headers.get('Last-Modified')||0);
+
+      data[g][n]={
+       src:a.textContent+b.textContent,
+       img:a.textContent+'images/'+n+'.jpg',
+       isNew:isNew(mod)
+      };
+     }
+    }
+   }
+  }
+ }catch(e){
+  console.warn("Scan failed",e);
+ }
+ render();
+}
+
+function render(){
+ grid.innerHTML='';
+ pathBar.textContent='C:\\963\\Beats'+(stack[0]?'\\'+stack[0]:'');
+ if(!stack.length){
+  for(const g in data){
+   grid.innerHTML+=`
+   <div class="item" onclick="openGenre('${g}')">
+    <div class="icon folder"></div>
+    <div class="name">${g}</div>
+   </div>`;
+  }
+ }else{
+  const g=stack[0];
+  for(const b in data[g]){
+   const beat=data[g][b];
+   grid.innerHTML+=`
+   <div class="item" onclick="openBeat('${b}','${g}')">
+    <div class="thumb">
+     <img src="${beat.img}" onerror="this.src='pic/logo.png'">
+    </div>
+    <div class="name">${b}${beat.isNew?'<span class="new">NEW</span>':''}</div>
+   </div>`;
+  }
+ }
+}
+
+function openGenre(g){stack=[g];render()}
+function goBack(){stack.pop();render()}
+function goHome(){stack=[];render()}
+
+function openBeat(b,g){
+ modalBox.innerHTML=`
+ <h3>${b}</h3>
+ <div class="player">
+  <audio src="${data[g][b].src}" controls style="width:100%"></audio>
+ </div>
+
+ <form id="form">
+  <input name="store" value="963 Beat Store" type="hidden">
+  <input name="beat" value="${b}" type="hidden">
+  <input name="genre" value="${g}" type="hidden">
+  <input name="timestamp" value="${new Date().toISOString()}" type="hidden">
+
+  <input name="email" type="email" placeholder="Your email" required>
+
+  <select name="license" required>
+   <option value="">License</option>
+   <option>Lease – $20</option>
+   <option>Premium – $50</option>
+   <option>Exclusive – $500</option>
+  </select>
+
+  <textarea name="message" placeholder="Intended use / notes"></textarea>
+
+  <button class="buy">Request Invoice</button>
+  <button class="buy" type="button" onclick="closeModal()">Cancel</button>
+ </form>`;
+ modal.style.display='flex';
+
+ document.getElementById("form").onsubmit=async e=>{
+  e.preventDefault();
+  await fetch('https://formspree.io/f/myzpglqg',{
+   method:'POST',
+   body:new FormData(e.target),
+   headers:{Accept:'application/json'}
+  });
+  modalBox.innerHTML=`
+   <div class="success">
+    <p>Invoice request sent.</p><br>
+    <button class="buy" onclick="closeModal()">Return to Beats</button>
+   </div>`;
+ };
+}
+
+function closeModal(){modal.style.display='none'}
+
+window.addEventListener('load',()=>{
+ document.getElementById("fill").style.width='100%';
+ scan();
+ setTimeout(()=>{
+  document.getElementById("boot-screen").classList.add('hidden');
+  document.getElementById("main").classList.add('visible');
+ },2600);
+});
+</script>
+
+</body>
+</html>
