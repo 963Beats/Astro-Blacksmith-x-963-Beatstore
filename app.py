@@ -93,7 +93,10 @@ class BeatManager:
 # ---------------- ROUTES ----------------
 @app.route("/")
 def index():
-    return render_template("index.html", genres=BeatManager.get_all_genres())
+    return render_template(
+        "index.html",
+        genres=BeatManager.get_all_genres()
+    )
 
 
 @app.route("/beat/<genre>/<slug>")
@@ -111,6 +114,7 @@ def beat_page(genre, slug):
                         og_beat=b,
                         og_genre=g
                     )
+
     abort(404)
 
 
@@ -118,8 +122,10 @@ def beat_page(genre, slug):
 def serve_audio(genre, filename):
     safe = Path(genre).name
     path = Config.BEATS_ROOT / safe
+
     if not path.exists():
         abort(404)
+
     return send_from_directory(path, filename)
 
 
@@ -130,6 +136,7 @@ def serve_visuals(genre, filename):
 
     safe = Path(genre).name
     path = Config.BEATS_ROOT / safe / "images"
+
     if not path.exists():
         return send_from_directory("static/visuals", Config.DEFAULT_IMAGE)
 
